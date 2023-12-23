@@ -1,0 +1,148 @@
+var calendarId = "INSERT GOOGLE CALENDAR ID HERE";
+
+var engagementNameIndex = 2;
+var serviceTypeIndex = 3;
+var roomRequiredIndex = 4;
+var startDateIndex = 5;
+var endDateIndex = 6;
+var objectivesIndex = 7;
+var clientNameIndex = 8;
+var clientDesignationIndex = 9;
+var clientTypeIndex = 10;
+var requestorNameIndex = 11;
+var requestorEmailIndex = 12;
+var requestorPhoneIndex = 13;
+var requestorRoleIndex = 14;
+var sbuIndex = 15;
+var sectorIndex = 16;
+var valueIndex = 17;
+var revenueIndex = 18;
+var commentsIndex = 19;
+var googleCalendarIndex = 20;
+
+
+function findRow(sheet) {  
+ var ss = SpreadsheetApp.openById("11gLTzdfzpHtEKX8NWt9RPqQT37BJNiU77EGek96tej0");
+ var sheet = ss.getSheetByName('Approved');
+ var dataRange = sheet.getDataRange();
+ var values = dataRange.getValues();
+ var cal = CalendarApp.getCalendarById(calendarId);
+  
+ for (var i = 0; i < values.length; i++) {  
+   if(values[i][googleCalendarIndex-1] == "" || values[i][googleCalendarIndex-1] == null) {
+     newEvent(i+1);
+     sendApprovalEmail(i+1);
+   }
+   /* Remove eventId entries in spreadsheet for events that were originally approved but switched to not approved */ 
+   else{
+       if(values[i][googleCalendarIndex-5] == "" || values[i][googleCalendarIndex-5] == null) {
+         event = cal.getEventSeriesById(eventId);
+         event.deleteEventSeries();
+         sheet.getRange(i+1,sheet.getLastColumn(),1,sheet.getLastColumn()).clearContent();
+       };
+   };
+};
+};
+
+  
+function newEvent(row) {
+ var ss = SpreadsheetApp.openById("11gLTzdfzpHtEKX8NWt9RPqQT37BJNiU77EGek96tej0");
+ var sheet = ss.getSheetByName('Approved');
+ var eventId = submitToGoogleCalendar(getSheetData(sheet,row), null);
+  
+ if(eventId != null) {
+   sheet.getRange(row,googleCalendarIndex,1,1).setValue(eventId);
+  };  
+};
+
+
+function getSheetData(sheet,row) { 
+  var data = new Array();
+
+  data.title = sheet.getRange(row,engagementNameIndex,1,1).getValue();
+  data.description = sheet.getRange(row,requestorNameIndex,1,1).getValue();
+  data.startDate = sheet.getRange(row,startDateIndex,1,1).getValue();
+  data.endDate = sheet.getRange(row,endDateIndex,1,1).getValue();
+  data.location = sheet.getRange(row,roomRequiredIndex,1,1).getValue();
+  
+  return data;
+};
+
+
+function dataChanged(event) {
+  var ss = SpreadsheetApp.openById("11gLTzdfzpHtEKX8NWt9RPqQT37BJNiU77EGek96tej0");
+  var sheet = ss.getSheetByName('Approved');
+  var row = event.range.getRow();
+  var eventId = sheet.getRange(row, googleCalendarIndex,1,1).getValue();
+  var eventId = submitToGoogleCalendar(getSheetData(sheet,row),eventId);
+  
+  if(eventId != null) {
+   sheet.getRange(row,googleCalendarIndex,1,1).setValue(eventId); 
+  }; 
+};
+
+
+function submitToGoogleCalendar(sheetData,eventId) {
+  if(sheetData.title == "" || sheetData.startDate == "" || sheetData.startDate == null) {
+    return null;
+  };
+  
+  var cal = CalendarApp.getCalendarById(calendarId);
+  var startDate = new Date(sheetData.startDate);
+  var endDate = new Date(sheetData.endDate);
+  var color = 11;
+  
+  if(startDate>endDate) {
+    return null;
+  };
+  
+  var event = null;
+  
+  if(eventId == null) {
+    
+    if (sheetData.location == "AIE Complete") {
+     color = 2; 
+    }
+    else if (sheetData.location == "Stadium") {
+      color = 8;
+    }
+    else if (sheetData.location == "Co-creation 1") {
+      color = 3;
+    }
+    else if (sheetData.location == "Co-creation 2") {
+      color = 5;
+    };
+    
+    var event = {
+      summary: sheetData.title,
+      location: sheetData.location,
+      description:sheetData.description,
+      start: {
+        dateTime: startDate.toISOString()
+      },
+      end: {
+        dateTime: endDate.toISOString()
+      },
+      colorId: color
+    };
+    event = Calendar.Events.insert(event, calendarId);
+    return event.getId();
+  }
+  
+  else{ 
+    event = cal.getEventSeriesById(eventId);
+    event.deleteEventSeries();
+    return submitToGoogleCalendar(sheetData,null);
+  };
+  
+  return event.getId();
+};
+
+function sendApprovalEmail(row) {
+  var ss = SpreadsheetApp.openById("11gLTzdfzpHtEKX8NWt9RPqQT37BJNiU77EGek96tej0");
+  var sheet = ss.getSheetByName('Approved');  
+  var userEmail = sheet.getRange(row,requestorEmailIndex,1,1).getValue();
+  var subject = "Request: " + sheet.getRange(row,engagementNameIndex,1,1).getValue();
+  var message = 'Your request to book the ' +  sheet.getRange(row,roomRequiredIndex,1,1).getValue() + ' on ' + sheet.getRange(row,startDateIndex,1,1).getValue() + ' to ' + sheet.getRange(row,endDateIndex,1,1).getValue() +' has been approved.';
+  MailApp.sendEmail(userEmail,subject,message);
+};
